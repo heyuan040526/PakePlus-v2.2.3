@@ -1,11 +1,295 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus</title>
-    </head>
-    <body>
-        Hello World
-    </body>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>批量图片生成工具</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="toolbar" id="toolbar" style="display: none;">
+            <span id="selectionInfo">已选中 0 行</span>
+            <button id="deleteSelectedBtn" class="delete-selected-btn">删除选中行</button>
+            <button id="cancelSelectBtn" class="cancel-select-btn">取消选择</button>
+            <button id="batchExtractBtn" class="batch-extract-btn">批量提取</button>
+        </div>
+
+        <div class="table-wrapper">
+            <table id="mainTable">
+                <thead>
+                    <tr>
+                        <th class="col-number">A<br>序号</th>
+                        <th class="col-product">B<br>商品图</th>
+                        <th class="col-selling-point">C<br>卖点</th>
+                        <th class="col-extract">D<br>提取结果</th>
+                        <th class="col-upload">E<br>参考图</th>
+                        <th class="col-prompt">F<br>提示词</th>
+                        <th class="col-size">G<br>尺寸</th>
+                        <th class="col-result">H<br>结果图片</th>
+                        <th class="col-history">I<br>历史图片</th>
+                        <th class="col-action">J<br>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="add-row-container">
+            <button id="addRowBtn" class="add-row-btn" title="添加新行">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- 设置窗口 -->
+    <div id="settingsModal" class="settings-modal" style="display: none;">
+        <div class="settings-content">
+            <div class="settings-header">
+                <h2>设置</h2>
+                <button class="settings-close" id="closeSettingsBtn">&times;</button>
+            </div>
+
+            <!-- 导航栏 -->
+            <div class="settings-nav">
+                <button class="settings-nav-btn active" data-tab="api">API设置</button>
+                <button class="settings-nav-btn" data-tab="template">模板设置</button>
+            </div>
+
+            <div class="settings-body">
+                <!-- API设置页面 -->
+                <div class="settings-tab-content active" id="apiTab">
+                    <!-- 下载路径设置 -->
+                    <div class="settings-section">
+                        <h3>下载路径设置</h3>
+                        <div class="settings-field">
+                            <label>下载保存路径</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <input type="text" id="downloadPath" placeholder="点击选择下载路径" readonly style="flex: 1; cursor: pointer;">
+                                <button id="selectDownloadPathBtn" class="select-path-btn" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">选择路径</button>
+                            </div>
+                            <small>首次下载时需要选择保存路径。注意：此功能需要较新版本的Chrome/Edge浏览器支持。</small>
+                        </div>
+                    </div>
+
+                    <!-- 图像识别API -->
+                    <div class="settings-section">
+                        <h3>图像识别API (gpt-5.2)</h3>
+                        <div class="settings-field" style="display: none;">
+                            <label>API Base URL</label>
+                            <input type="text" id="imageApiBaseUrl" placeholder="例如: https://api.openai.com">
+                        </div>
+                        <div class="settings-field">
+                            <label>API Key</label>
+                            <input type="password" id="imageApiKey" placeholder="输入您的API密钥">
+                        </div>
+                        <div class="settings-field" style="display: none;">
+                            <label>模型名称</label>
+                            <input type="text" id="imageModelName" placeholder="gpt-5.2" value="gpt-5.2">
+                        </div>
+                    </div>
+
+                    <!-- 文本分析API -->
+                    <div class="settings-section">
+                        <h3>文本分析API (Deepseek)</h3>
+                        <div class="settings-field" style="display: none;">
+                            <label>API Base URL</label>
+                            <input type="text" id="textApiBaseUrl" placeholder="https://api.deepseek.com" value="https://api.deepseek.com">
+                        </div>
+                        <div class="settings-field">
+                            <label>API Key</label>
+                            <input type="password" id="textApiKey" placeholder="输入您的Deepseek API密钥">
+                        </div>
+                        <div class="settings-field" style="display: none;">
+                            <label>模型名称</label>
+                            <input type="text" id="textModelName" placeholder="deepseek-chat" value="deepseek-chat">
+                        </div>
+                    </div>
+
+                    <!-- 图片生成API -->
+                    <div class="settings-section">
+                        <h3>图片生成API (gpt-image-2)</h3>
+                        <div class="settings-field" style="display: none;">
+                            <label>API Base URL</label>
+                            <input type="text" id="imageGenApiBaseUrl" placeholder="https://ai.comfly.chat" value="https://ai.comfly.chat">
+                        </div>
+                        <div class="settings-field">
+                            <label>API Key</label>
+                            <input type="password" id="imageGenApiKey" placeholder="输入您的API密钥">
+                        </div>
+                        <div class="settings-field" style="display: none;">
+                            <label>模型名称</label>
+                            <input type="text" id="imageGenModelName" placeholder="gpt-image-2" value="gpt-image-2">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 模板设置页面 -->
+                <div class="settings-tab-content" id="templateTab">
+                    <!-- 图像分析提示词 -->
+                    <div class="settings-section">
+                        <h3>图像分析提示词模板</h3>
+                        <div class="settings-field">
+                            <label>提示词模板</label>
+                            <textarea id="imagePromptTemplate" rows="8" placeholder="使用 {卖点} 作为占位符">用户提供的原始信息：{卖点}
+
+你是一位精通中英双语的资深亚马逊运营专家。请根据上述原始信息和图片内容，按照以下格式提取和补充内容。
+
+重要：
+1. 仔细观察商品图片，分析商品的外观特点、颜色、设计细节等视觉特征
+2. 结合用户提供的卖点信息进行补充和完善
+3. 直接输出格式化结果，不要添加任何额外说明
+
+一、商品名称 (Product Name)
+中文：
+商品英文名：
+
+二、商品特征 (Product Features)
+请详细描述商品的外观特点，包括但不限于：
+- 颜色：主色调、配色方案
+- 设计：造型特点、图案、装饰元素
+- 尺寸：大小、比例
+- 工艺：缝制、印刷、表面处理等细节
+- 其他显著特征
+
+中文：
+English：
+
+三、核心卖点 (Key Selling Points)
+中文：
+1、...
+核心卖点英文：
+1、...
+
+四、材质信息 (Material Information)
+中文：
+English：
+
+五、使用场景 (Usage Scenarios)
+中文：
+1、...
+英文使用场景：
+1、...</textarea>
+                            <small>提示：使用 {卖点} 作为占位符，将被实际卖点内容替换</small>
+                        </div>
+                    </div>
+
+                    <!-- 纯文本提取提示词 -->
+                    <div class="settings-section">
+                        <h3>纯文本提取提示词模板</h3>
+                        <div class="settings-field">
+                            <label>提示词模板</label>
+                            <textarea id="textPromptTemplate" rows="4" placeholder="使用 {卖点} 作为占位符">请根据以下卖点进行详细分析和扩展：{卖点}</textarea>
+                            <small>提示：使用 {卖点} 作为占位符，将被实际卖点内容替换</small>
+                        </div>
+                    </div>
+
+                    <!-- 主图模板 -->
+                    <div class="settings-section">
+                        <h3>主图提示词模板</h3>
+                        <div class="settings-field">
+                            <label>提示词模板</label>
+                            <textarea id="mainImageTemplate" rows="10" placeholder="使用 {product_name} 和 {extract_result} 作为占位符"></textarea>
+                            <small>提示：使用 {product_name} 和 {extract_result} 作为占位符</small>
+                        </div>
+                    </div>
+
+                    <!-- A+模板 -->
+                    <div class="settings-section">
+                        <h3>A+提示词模板</h3>
+                        <div class="settings-field">
+                            <label>提示词模板</label>
+                            <textarea id="aplusTemplate" rows="10" placeholder="使用 {product_name} 和 {extract_result} 作为占位符"></textarea>
+                            <small>提示：使用 {product_name} 和 {extract_result} 作为占位符</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-footer">
+                <button id="clearSettingsBtn" class="settings-clear-btn">清除设置</button>
+                <button id="saveSettingsBtn" class="settings-save-btn">保存设置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 提取结果编辑弹窗 -->
+    <div id="extractEditModal" class="extract-edit-modal" style="display: none;">
+        <div class="extract-edit-content">
+            <div class="extract-edit-header">
+                <h2>提取结果编辑</h2>
+                <button class="extract-edit-close" id="closeExtractEditBtn">&times;</button>
+            </div>
+            <div class="extract-edit-body">
+                <div class="analysis-buttons-container">
+                    <button id="analyzeSizeBtn" class="analysis-btn">
+                        <span class="analysis-btn-icon">📏</span>
+                        <span class="analysis-btn-text">商品参考大小</span>
+                    </button>
+                    <button id="analyzeWearingBtn" class="analysis-btn">
+                        <span class="analysis-btn-icon">👔</span>
+                        <span class="analysis-btn-text">穿戴方式解析</span>
+                    </button>
+                    <button id="analyzeUsageBtn" class="analysis-btn">
+                        <span class="analysis-btn-icon">💡</span>
+                        <span class="analysis-btn-text">使用方式解析</span>
+                    </button>
+                </div>
+                <textarea id="extractEditTextarea" class="extract-edit-textarea" placeholder="提取结果"></textarea>
+            </div>
+            <div class="extract-edit-footer">
+                <div class="modify-instruction-container">
+                    <label>修改指令：</label>
+                    <input type="text" id="modifyInstruction" placeholder="例如：去除所有尺寸参数">
+                    <button id="modifyTextBtn" class="modify-text-btn">修改</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 提示词模式选择弹窗 -->
+    <div id="promptModeModal" class="prompt-mode-modal" style="display: none;">
+        <div class="prompt-mode-content">
+            <div class="prompt-mode-header">
+                <h2>选择提示词模式</h2>
+                <button class="prompt-mode-close" id="closePromptModeBtn">&times;</button>
+            </div>
+            <div class="prompt-mode-body">
+                <button class="mode-select-btn amazon-mode-btn" data-mode="amazon">
+                    <div class="mode-icon">🛒</div>
+                    <div class="mode-title">亚马逊</div>
+                    <div class="mode-desc">生成主图和A+提示词</div>
+                </button>
+                <button class="mode-select-btn free-mode-btn" data-mode="free">
+                    <div class="mode-icon">✏️</div>
+                    <div class="mode-title">自由</div>
+                    <div class="mode-desc">自由输入提示词文本</div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 自由模式输入弹窗 -->
+    <div id="freePromptModal" class="free-prompt-modal" style="display: none;">
+        <div class="free-prompt-content">
+            <div class="free-prompt-header">
+                <h2>自由输入提示词</h2>
+                <button class="free-prompt-close" id="closeFreePromptBtn">&times;</button>
+            </div>
+            <div class="free-prompt-body">
+                <textarea id="freePromptTextarea" class="free-prompt-textarea" placeholder="请输入您的提示词内容..."></textarea>
+            </div>
+            <div class="free-prompt-footer">
+                <button id="cancelFreePromptBtn" class="cancel-free-prompt-btn">取消</button>
+                <button id="saveFreePromptBtn" class="save-free-prompt-btn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
 </html>
