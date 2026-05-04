@@ -327,6 +327,30 @@ select:focus {
     background: #7f8c8d;
 }
 
+.product-gallery-btn {
+    position: static;
+    padding: 3px 10px;
+    background: #95a5a6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    margin-top: 5px;
+}
+
+.product-gallery-btn:hover {
+    background: #7f8c8d;
+}
+
+.product-gallery-btn.expanded {
+    background: #4a90e2;
+    color: white;
+    border-color: #4a90e2;
+}
+
 .upload-area:hover {
     border-color: #4a90e2;
     background: #f0f7ff;
