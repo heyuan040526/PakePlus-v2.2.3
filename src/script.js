@@ -301,7 +301,7 @@ function addRow() {
         <td>
             <div class="product-upload-wrapper">
                 <div class="upload-area product-upload" data-row="${rowCount}">
-                    <input type="file" accept="image/*" class="product-file-input" data-row="${rowCount}">
+                    <input type="file" accept="image/*" multiple class="product-file-input" data-row="${rowCount}">
                     <div class="upload-placeholder">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -313,7 +313,7 @@ function addRow() {
                     <img class="product-preview" alt="预览">
                     <button class="delete-image-btn product-delete-btn" data-row="${rowCount}" style="display:none;">×</button>
                 </div>
-                <button class="product-text-delete-btn" data-row="${rowCount}" style="display:none;">删除</button>
+                <button class="product-gallery-btn" data-row="${rowCount}" style="display:none;">展开</button>
             </div>
         </td>
         <td>
@@ -398,12 +398,17 @@ function addRow() {
 function bindRowEvents(row) {
     const rowId = row.dataset.rowId;
 
-    // 商品图片上传（B列）
+    // 商品图片上传（B列）- 支持多图片（最多4张）
     const productUploadArea = row.querySelector('.product-upload');
     const productFileInput = row.querySelector('.product-file-input');
     const productPreview = row.querySelector('.product-preview');
     const productDeleteBtn = row.querySelector('.product-delete-btn');
-    const productTextDeleteBtn = row.querySelector('.product-text-delete-btn');
+    const productGalleryBtn = row.querySelector('.product-gallery-btn');
+
+    // 初始化商品图片数组
+    if (!row.productImages) {
+        row.productImages = [];
+    }
 
     productUploadArea.addEventListener('click', function() {
         // 如果已有图片，则放大查看；否则打开文件选择
@@ -415,35 +420,69 @@ function bindRowEvents(row) {
     });
 
     productFileInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (file && file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                productPreview.src = e.target.result;
-                productUploadArea.classList.add('has-image');
-                productDeleteBtn.style.display = 'block';
-                productTextDeleteBtn.style.display = 'inline-block';
-            };
-            reader.readAsDataURL(file);
+        const files = Array.from(e.target.files);
+        if (files.length > 0) {
+            // 限制最多4张
+            const remainingSlots = 4 - row.productImages.length;
+            const filesToAdd = files.slice(0, remainingSlots);
+
+            if (files.length > remainingSlots) {
+                alert(`最多只能上传4张商品图，已自动选择前${remainingSlots}张`);
+            }
+
+            filesToAdd.forEach(file => {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        row.productImages.push(e.target.result);
+                        // 显示第一张图片
+                        productPreview.src = row.productImages[0];
+                        productUploadArea.classList.add('has-image');
+                        // 显示删除按钮
+                        productDeleteBtn.style.display = 'block';
+                        // 显示展开按钮（只有多于1张时显示）
+                        if (row.productImages.length > 1) {
+                            productGalleryBtn.style.display = 'inline-block';
+                            productGalleryBtn.textContent = `展开 (${row.productImages.length}张)`;
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
         }
     });
 
     productDeleteBtn.addEventListener('click', function(e) {
         e.stopPropagation();
-        productPreview.src = '';
-        productUploadArea.classList.remove('has-image');
-        productDeleteBtn.style.display = 'none';
-        productTextDeleteBtn.style.display = 'none';
+        // 删除第一张图片
+        if (row.productImages.length > 0) {
+            row.productImages.shift();
+
+            if (row.productImages.length > 0) {
+                // 还有图片，显示下一张
+                productPreview.src = row.productImages[0];
+                // 更新展开按钮
+                if (row.productImages.length > 1) {
+                    productGalleryBtn.textContent = `展开 (${row.productImages.length}张)`;
+                } else {
+                    // 只剩一张，隐藏展开按钮
+                    productGalleryBtn.style.display = 'none';
+                }
+            } else {
+                // 没有图片了
+                productPreview.src = '';
+                productUploadArea.classList.remove('has-image');
+                productDeleteBtn.style.display = 'none';
+                productGalleryBtn.style.display = 'none';
+            }
+        }
         productFileInput.value = '';
     });
 
-    productTextDeleteBtn.addEventListener('click', function(e) {
+    // 商品图展开按钮点击事件
+    productGalleryBtn.addEventListener('click', function(e) {
         e.stopPropagation();
-        productPreview.src = '';
-        productUploadArea.classList.remove('has-image');
-        productDeleteBtn.style.display = 'none';
-        productTextDeleteBtn.style.display = 'none';
-        productFileInput.value = '';
+        toggleProductGallery(row);
     });
 
     // 参考图片上传（E列）- 支持多图片
@@ -458,7 +497,15 @@ function bindRowEvents(row) {
         row.referenceImages = [];
     }
 
-    referenceUploadArea.addEventListener('click', () => referenceFileInput.click());
+    referenceUploadArea.addEventListener('click', () => {
+        // 如果已有图片，放大查看第一张
+        if (referenceUploadArea.classList.contains('has-image') && row.referenceImages && row.referenceImages.length > 0) {
+            showImageModal(row.referenceImages[0], row.referenceImages, 0);
+        } else {
+            // 如果没有图片，打开文件选择
+            referenceFileInput.click();
+        }
+    });
 
     referenceFileInput.addEventListener('change', function(e) {
         const files = Array.from(e.target.files);
@@ -776,11 +823,17 @@ async function generateImage(rowId) {
         return;
     }
 
-    // 获取尺寸
+    // 获取尺寸选择器（但不立即读取值）
     const sizeSelect = row.querySelector('.size-select');
     const sizeCustom = row.querySelector('.size-custom');
-    const aspectRatio = sizeSelect.value === '自定义' ? sizeCustom.value : sizeSelect.value;
 
+    // 创建一个函数来获取当前尺寸，确保每次都读取最新值
+    const getCurrentAspectRatio = () => {
+        return sizeSelect.value === '自定义' ? sizeCustom.value : sizeSelect.value;
+    };
+
+    // 验证尺寸是否已选择
+    const aspectRatio = getCurrentAspectRatio();
     console.log('=== 尺寸调试信息 ===');
     console.log('sizeSelect.value:', sizeSelect.value);
     console.log('sizeCustom.value:', sizeCustom.value);
@@ -883,12 +936,18 @@ async function generateImage(rowId) {
             // 在按钮上更新进度状态
             generateBtn.textContent = `生成中... (${i + 1}/${selectedPrompts.length})`;
 
+            // 每次生成时重新读取当前尺寸，确保使用用户最新选择的尺寸
+            const currentAspectRatio = getCurrentAspectRatio();
+
+            console.log(`=== 生成第 ${i + 1} 张图片 ===`);
+            console.log('当前使用的尺寸:', currentAspectRatio);
+
             // 构建请求体
             const requestBody = {
                 model: aiSettings.imageGenModelName,
                 prompt: promptText,
-                aspect_ratio: aspectRatio,
-                size: aspectRatio  // 同时添加 size 参数以兼容不同API
+                aspect_ratio: currentAspectRatio,
+                size: currentAspectRatio  // 同时添加 size 参数以兼容不同API
             };
 
             console.log('=== API请求体 ===');
@@ -1028,7 +1087,7 @@ function addToHistory(row, imageUrl, promptType, promptIndex) {
         // 点击查看大图
         thumbnail.addEventListener('click', function(e) {
             e.stopPropagation();
-            showImageModal(imgUrl, row.historyImages, index);
+            showImageModal(imgUrl, row.historyImages, index, row);
         });
 
         thumbnailsContainer.appendChild(thumbnail);
@@ -1046,8 +1105,85 @@ function addToHistory(row, imageUrl, promptType, promptIndex) {
     }
 }
 
+// 删除历史图片
+function deleteHistoryImage(row, imageIndex) {
+    if (!row || !row.historyImages || imageIndex < 0 || imageIndex >= row.historyImages.length) {
+        console.error('删除图片失败：参数无效');
+        return;
+    }
+
+    console.log('删除图片，索引:', imageIndex);
+
+    // 获取要删除的图片URL
+    const deletedImageUrl = row.historyImages[imageIndex];
+
+    // 从历史图片数组中删除
+    row.historyImages.splice(imageIndex, 1);
+
+    // 从图片提示词映射中删除对应项
+    if (row.imagePromptMap) {
+        row.imagePromptMap.splice(imageIndex, 1);
+    }
+
+    // 更新缩略图显示
+    const thumbnailsContainer = row.querySelector('.history-thumbnails');
+    if (thumbnailsContainer) {
+        thumbnailsContainer.innerHTML = '';
+
+        // 重新渲染所有缩略图
+        row.historyImages.forEach((imgUrl, index) => {
+            const thumbnail = document.createElement('div');
+            thumbnail.className = 'history-thumbnail';
+            thumbnail.innerHTML = `<img src="${imgUrl}" alt="历史${index + 1}">`;
+
+            // 点击查看大图
+            thumbnail.addEventListener('click', function(e) {
+                e.stopPropagation();
+                showImageModal(imgUrl, row.historyImages, index, row);
+            });
+
+            thumbnailsContainer.appendChild(thumbnail);
+        });
+    }
+
+    // 检查结果图片区域是否显示的是被删除的图片
+    const resultDisplay = row.querySelector('.image-display');
+    if (resultDisplay) {
+        const resultImg = resultDisplay.querySelector('img');
+        if (resultImg && resultImg.src === deletedImageUrl) {
+            // 如果还有其他图片，显示最新的一张
+            if (row.historyImages.length > 0) {
+                resultDisplay.innerHTML = `<img src="${row.historyImages[row.historyImages.length - 1]}" alt="生成结果">`;
+            } else {
+                // 没有图片了，恢复空状态
+                resultDisplay.classList.add('empty');
+                resultDisplay.innerHTML = '<span>未生成</span>';
+            }
+        }
+    }
+
+    // 如果没有历史图片了，隐藏相关按钮
+    if (row.historyImages.length === 0) {
+        const galleryBtn = row.querySelector('.history-gallery-btn');
+        const downloadBtn = row.querySelector('.history-download-btn');
+        if (galleryBtn) galleryBtn.style.display = 'none';
+        if (downloadBtn) downloadBtn.style.display = 'none';
+    }
+
+    // 更新提示词状态（如果是亚马逊模式）
+    const modeToggle = row.querySelector('.prompt-mode-toggle');
+    if (modeToggle && modeToggle.dataset.mode === 'amazon') {
+        const promptBtn = row.querySelector('.prompt-expand-btn');
+        if (promptBtn && promptBtn.dataset.type) {
+            updatePromptStatus(row, promptBtn.dataset.type);
+        }
+    }
+
+    console.log('图片删除完成，剩余图片数量:', row.historyImages.length);
+}
+
 // 显示图片模态框
-function showImageModal(imageUrl, allImages = null, currentIndex = 0) {
+function showImageModal(imageUrl, allImages = null, currentIndex = 0, row = null) {
     const images = allImages || [imageUrl];
     let currentIdx = currentIndex;
 
@@ -1085,6 +1221,76 @@ function showImageModal(imageUrl, allImages = null, currentIndex = 0) {
     `;
 
     imgContainer.appendChild(img);
+
+    // 声明 counter 变量，供删除按钮使用
+    let counter = null;
+
+    // 添加删除按钮（仅当有 row 参数且是历史图片时显示）
+    if (row && allImages && allImages === row.historyImages) {
+        const deleteBtn = document.createElement('button');
+        deleteBtn.innerHTML = '🗑️ 删除';
+        deleteBtn.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: rgba(231, 76, 60, 0.9);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            z-index: 1002;
+            transition: all 0.2s;
+        `;
+        deleteBtn.addEventListener('mouseover', () => {
+            deleteBtn.style.background = 'rgba(231, 76, 60, 1)';
+            deleteBtn.style.transform = 'scale(1.05)';
+        });
+        deleteBtn.addEventListener('mouseout', () => {
+            deleteBtn.style.background = 'rgba(231, 76, 60, 0.9)';
+            deleteBtn.style.transform = 'scale(1)';
+        });
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (confirm('确定要删除这张图片吗？')) {
+                // 删除图片
+                deleteHistoryImage(row, currentIdx);
+
+                // 如果还有其他图片，切换到相邻图片
+                if (images.length > 1) {
+                    // 从数组中移除当前图片
+                    images.splice(currentIdx, 1);
+
+                    // 调整当前索引
+                    if (currentIdx >= images.length) {
+                        currentIdx = images.length - 1;
+                    }
+
+                    // 更新显示
+                    img.src = images[currentIdx];
+                    if (counter) {
+                        counter.textContent = `${currentIdx + 1}/${images.length}`;
+                    }
+
+                    // 如果只剩一张图片，移除前后按钮
+                    if (images.length === 1) {
+                        const prevBtn = modal.querySelector('button');
+                        const nextBtn = modal.querySelectorAll('button')[1];
+                        if (prevBtn && prevBtn.innerHTML === '◀') prevBtn.remove();
+                        if (nextBtn && nextBtn.innerHTML === '▶') nextBtn.remove();
+                        if (counter) counter.remove();
+                    }
+                } else {
+                    // 没有图片了，关闭模态框
+                    modal.remove();
+                }
+            }
+        });
+
+        modal.appendChild(deleteBtn);
+    }
 
     if (images.length > 1) {
         const prevBtn = document.createElement('button');
@@ -1151,7 +1357,7 @@ function showImageModal(imageUrl, allImages = null, currentIndex = 0) {
             counter.textContent = `${currentIdx + 1}/${images.length}`;
         });
 
-        const counter = document.createElement('div');
+        counter = document.createElement('div');
         counter.textContent = `${currentIdx + 1}/${images.length}`;
         counter.style.cssText = `
             position: fixed;
@@ -1281,7 +1487,7 @@ function copyRowToBottom(sourceRow) {
         <td>
             <div class="product-upload-wrapper">
                 <div class="upload-area product-upload" data-row="${rowCount}">
-                    <input type="file" accept="image/*" class="product-file-input" data-row="${rowCount}">
+                    <input type="file" accept="image/*" multiple class="product-file-input" data-row="${rowCount}">
                     <div class="upload-placeholder">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -1293,7 +1499,7 @@ function copyRowToBottom(sourceRow) {
                     <img class="product-preview" alt="预览">
                     <button class="delete-image-btn product-delete-btn" data-row="${rowCount}" style="display:none;">×</button>
                 </div>
-                <button class="product-text-delete-btn" data-row="${rowCount}" style="display:none;">删除</button>
+                <button class="product-gallery-btn" data-row="${rowCount}" style="display:none;">展开</button>
             </div>
         </td>
         <td>
@@ -1371,18 +1577,24 @@ function copyRowToBottom(sourceRow) {
 
     // 复制 B、C、D、E 列的内容
 
-    // B列：商品图
-    const sourceProductPreview = sourceRow.querySelector('.product-preview');
-    if (sourceProductPreview && sourceProductPreview.src && sourceProductPreview.src !== window.location.href) {
+    // B列：商品图（支持多张）
+    if (sourceRow.productImages && sourceRow.productImages.length > 0) {
+        newRow.productImages = [...sourceRow.productImages];
+
         const newProductPreview = newRow.querySelector('.product-preview');
         const newProductUploadArea = newRow.querySelector('.product-upload');
         const newProductDeleteBtn = newRow.querySelector('.product-delete-btn');
-        const newProductTextDeleteBtn = newRow.querySelector('.product-text-delete-btn');
+        const newProductGalleryBtn = newRow.querySelector('.product-gallery-btn');
 
-        newProductPreview.src = sourceProductPreview.src;
+        newProductPreview.src = sourceRow.productImages[0];
         newProductUploadArea.classList.add('has-image');
         newProductDeleteBtn.style.display = 'block';
-        newProductTextDeleteBtn.style.display = 'inline-block';
+
+        // 如果有多张图片，显示展开按钮
+        if (sourceRow.productImages.length > 1) {
+            newProductGalleryBtn.style.display = 'inline-block';
+            newProductGalleryBtn.textContent = `展开 (${sourceRow.productImages.length}张)`;
+        }
     }
 
     // C列：卖点
@@ -1465,6 +1677,124 @@ function saveData() {
 
 // 页面卸载前保存数据（已禁用）
 // window.addEventListener('beforeunload', saveData);
+
+// 切换商品图片画廊展开/收起
+function toggleProductGallery(row) {
+    const images = row.productImages || [];
+    if (images.length === 0) return;
+
+    const rowId = row.dataset.rowId;
+    const existingGalleryRow = document.querySelector(`tr.product-gallery-row[data-parent-row="${rowId}"]`);
+
+    if (existingGalleryRow) {
+        // 如果已经展开，则收起
+        existingGalleryRow.remove();
+        row.querySelector('.product-gallery-btn').classList.remove('expanded');
+    } else {
+        // 展开画廊
+        const galleryRow = document.createElement('tr');
+        galleryRow.className = 'product-gallery-row';
+        galleryRow.dataset.parentRow = rowId;
+
+        const galleryCell = document.createElement('td');
+        galleryCell.colSpan = 10;
+        galleryCell.className = 'gallery-cell';
+
+        const galleryContainer = document.createElement('div');
+        galleryContainer.className = 'gallery-container';
+
+        const galleryTitle = document.createElement('div');
+        galleryTitle.className = 'gallery-title';
+        galleryTitle.textContent = `商品图片 (${images.length}张)`;
+
+        const imagesGrid = document.createElement('div');
+        imagesGrid.className = 'gallery-grid';
+
+        images.forEach((imgSrc, index) => {
+            const imgWrapper = document.createElement('div');
+            imgWrapper.className = 'gallery-item';
+
+            const img = document.createElement('img');
+            img.src = imgSrc;
+            img.addEventListener('click', () => showImageModal(imgSrc, images, index));
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'gallery-item-delete';
+            deleteBtn.textContent = '×';
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                row.productImages.splice(index, 1);
+                if (row.productImages.length > 0) {
+                    // 更新预览图
+                    row.querySelector('.product-preview').src = row.productImages[0];
+                    // 更新展开按钮文字
+                    const galleryBtn = row.querySelector('.product-gallery-btn');
+                    galleryBtn.textContent = `展开 (${row.productImages.length}张)`;
+                    // 如果只剩一张，隐藏展开按钮
+                    if (row.productImages.length === 1) {
+                        galleryBtn.style.display = 'none';
+                    }
+                    // 刷新画廊
+                    toggleProductGallery(row);
+                    setTimeout(() => toggleProductGallery(row), 0);
+                } else {
+                    // 没有图片了
+                    row.querySelector('.product-upload').classList.remove('has-image');
+                    row.querySelector('.product-delete-btn').style.display = 'none';
+                    row.querySelector('.product-gallery-btn').style.display = 'none';
+                    galleryRow.remove();
+                }
+            });
+
+            imgWrapper.appendChild(img);
+            imgWrapper.appendChild(deleteBtn);
+            imagesGrid.appendChild(imgWrapper);
+        });
+
+        // 添加更多图片按钮（限制最多4张）
+        if (images.length < 4) {
+            const addMoreBtn = document.createElement('div');
+            addMoreBtn.className = 'gallery-add-more';
+            addMoreBtn.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>添加更多 (${images.length}/4)</span>
+            `;
+            addMoreBtn.addEventListener('click', () => {
+                row.querySelector('.product-file-input').click();
+            });
+            imagesGrid.appendChild(addMoreBtn);
+        }
+
+        galleryContainer.appendChild(galleryTitle);
+        galleryContainer.appendChild(imagesGrid);
+        galleryCell.appendChild(galleryContainer);
+        galleryRow.appendChild(galleryCell);
+
+        row.parentNode.insertBefore(galleryRow, row.nextSibling);
+        row.querySelector('.product-gallery-btn').classList.add('expanded');
+
+        // 添加全局点击事件，点击外部区域关闭展开行
+        const galleryBtn = row.querySelector('.product-gallery-btn');
+        setTimeout(() => {
+            const closeHandler = function(e) {
+                // 如果点击的是展开行内部或按钮本身，不关闭
+                if (galleryRow.contains(e.target) || galleryBtn.contains(e.target)) {
+                    return;
+                }
+
+                // 点击外部区域，关闭展开行
+                galleryRow.remove();
+                galleryBtn.classList.remove('expanded');
+                document.removeEventListener('click', closeHandler);
+            };
+
+            document.addEventListener('click', closeHandler);
+        }, 100);
+    }
+}
 
 // 切换参考图片画廊展开/收起
 function toggleReferenceGallery(row) {
@@ -1761,33 +2091,38 @@ function resizeImageToSize(url, targetSize) {
     return new Promise((resolve, reject) => {
         const img = new Image();
 
-        // 只对非base64图片设置跨域
-        if (!url.startsWith('data:')) {
-            img.crossOrigin = 'anonymous';
-        }
-
         img.onload = function() {
-            // 创建canvas
-            const canvas = document.createElement('canvas');
-            canvas.width = targetSize.width;
-            canvas.height = targetSize.height;
+            try {
+                // 创建canvas
+                const canvas = document.createElement('canvas');
+                canvas.width = targetSize.width;
+                canvas.height = targetSize.height;
 
-            const ctx = canvas.getContext('2d');
-            // 使用高质量缩放
-            ctx.imageSmoothingEnabled = true;
-            ctx.imageSmoothingQuality = 'high';
+                const ctx = canvas.getContext('2d');
+                // 使用高质量缩放
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
 
-            // 绘制缩放后的图片
-            ctx.drawImage(img, 0, 0, targetSize.width, targetSize.height);
+                // 绘制缩放后的图片
+                ctx.drawImage(img, 0, 0, targetSize.width, targetSize.height);
 
-            // 转换为blob
-            canvas.toBlob((blob) => {
-                if (blob) {
-                    resolve(blob);
-                } else {
-                    reject(new Error('Canvas转换失败'));
+                // 转换为blob - 使用 try-catch 捕获 tainted canvas 错误
+                try {
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            resolve(blob);
+                        } else {
+                            reject(new Error('Canvas转换失败'));
+                        }
+                    }, 'image/png', 1.0);
+                } catch (securityError) {
+                    console.warn('Canvas被污染，无法导出:', securityError);
+                    reject(new Error('Canvas安全错误'));
                 }
-            }, 'image/png', 1.0);
+            } catch (error) {
+                console.error('Canvas操作失败:', error);
+                reject(error);
+            }
         };
 
         img.onerror = function(error) {
@@ -1795,7 +2130,21 @@ function resizeImageToSize(url, targetSize) {
             reject(new Error('图片加载失败'));
         };
 
-        img.src = url;
+        // 对于 data: URLs，直接使用；对于其他 URLs，尝试通过 fetch 转换为 blob URL
+        if (url.startsWith('data:')) {
+            img.src = url;
+        } else {
+            // 尝试通过 fetch 获取图片并转换为 blob URL，避免 file:// 协议问题
+            fetch(url)
+                .then(response => response.blob())
+                .then(blob => {
+                    img.src = URL.createObjectURL(blob);
+                })
+                .catch(fetchError => {
+                    console.warn('Fetch失败，尝试直接加载:', fetchError);
+                    img.src = url;
+                });
+        }
     });
 }
 
@@ -1806,15 +2155,25 @@ async function downloadImage(url, filename, targetSize = null) {
 
         // 如果需要缩放
         if (targetSize) {
-            blob = await resizeImageToSize(url, targetSize);
-        } else {
-            // 不需要缩放，获取原始blob
+            try {
+                // 尝试使用 Canvas 缩放
+                blob = await resizeImageToSize(url, targetSize);
+                console.log('图片已缩放到指定尺寸:', targetSize);
+            } catch (canvasError) {
+                // Canvas 失败（可能是污染错误）
+                console.warn('Canvas 缩放失败，将下载原始尺寸:', canvasError.message);
+                blob = null; // 标记为失败，后续使用原始尺寸
+            }
+        }
+
+        // 如果没有缩放或 Canvas 失败，使用原始尺寸
+        if (!blob) {
             if (url.startsWith('data:')) {
-                // base64转blob
+                // base64 转 blob，使用 fetch 避免 Canvas 污染
                 const response = await fetch(url);
                 blob = await response.blob();
             } else {
-                // 外部URL，使用fetch转换为blob
+                // 外部 URL，使用 fetch 转换为 blob
                 const response = await fetch(url);
                 blob = await response.blob();
             }
@@ -2341,24 +2700,50 @@ function imageToBase64(imgElement) {
             return;
         }
 
-        // 创建canvas转换
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
+        // 对于 file:// 或其他 URL，先通过 fetch 转换为 blob，再转为 base64
+        fetch(imgElement.src)
+            .then(response => response.blob())
+            .then(blob => {
+                const reader = new FileReader();
+                reader.onloadend = function() {
+                    resolve(reader.result);
+                };
+                reader.onerror = function() {
+                    reject('转换base64失败');
+                };
+                reader.readAsDataURL(blob);
+            })
+            .catch(fetchError => {
+                console.warn('Fetch失败，尝试使用canvas转换:', fetchError);
 
-        img.onload = function() {
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/jpeg'));
-        };
+                // 回退方案：使用canvas转换
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
 
-        img.onerror = function() {
-            reject('图片加载失败');
-        };
+                img.onload = function() {
+                    try {
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        ctx.drawImage(img, 0, 0);
+                        try {
+                            const dataUrl = canvas.toDataURL('image/jpeg');
+                            resolve(dataUrl);
+                        } catch (securityError) {
+                            console.error('Canvas被污染，无法导出:', securityError);
+                            reject('Canvas安全错误');
+                        }
+                    } catch (error) {
+                        reject('Canvas转换失败');
+                    }
+                };
 
-        img.src = imgElement.src;
+                img.onerror = function() {
+                    reject('图片加载失败');
+                };
+
+                img.src = imgElement.src;
+            });
     });
 }
 
@@ -3097,6 +3482,12 @@ function displayPromptResults(row, prompts, type) {
 
     // 清空结果容器
     resultContainer.innerHTML = '';
+
+    // 隐藏主图和A+按钮容器
+    const promptButtonsContainer = promptContainer.querySelector('.prompt-buttons-container');
+    if (promptButtonsContainer) {
+        promptButtonsContainer.style.display = 'none';
+    }
 
     // 创建展开按钮
     const expandBtn = document.createElement('button');
