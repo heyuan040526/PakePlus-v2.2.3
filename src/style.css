@@ -182,9 +182,8 @@ tbody td {
 .col-product { width: 48px; }
 .col-selling-point { width: 120px; }
 .col-extract { width: 180px; }
-.col-upload { width: 48px; }
-.col-size { width: 61px; }
 .col-prompt { width: 56px; }
+.col-size { width: 61px; }
 .col-result { width: 60px; }
 .col-history { width: 150px; }
 .col-action { width: 42px; }
@@ -265,14 +264,6 @@ select:focus {
 }
 
 /* 图片上传区域 */
-.reference-upload-container {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-}
-
 .upload-area {
     position: relative;
     width: 48px;
@@ -308,23 +299,6 @@ select:focus {
 .delete-image-btn:hover {
     background: rgba(192, 57, 43, 1);
     transform: scale(1.1);
-}
-
-.reference-gallery-btn {
-    position: static;
-    padding: 3px 10px;
-    background: #95a5a6;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    font-size: 11px;
-    cursor: pointer;
-    transition: all 0.2s;
-    flex-shrink: 0;
-}
-
-.reference-gallery-btn:hover {
-    background: #7f8c8d;
 }
 
 .product-gallery-btn {
@@ -421,8 +395,7 @@ select:focus {
 }
 
 .upload-area.has-image .upload-preview,
-.upload-area.has-image .product-preview,
-.upload-area.has-image .reference-preview {
+.upload-area.has-image .product-preview {
     display: block;
 }
 
