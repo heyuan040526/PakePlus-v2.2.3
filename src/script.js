@@ -2,6 +2,14 @@
 let rowCount = 0;
 let selectedRows = new Set();
 let lastClickedRowId = null;
+// 跟踪每一行的提取状态
+const EXTRACT_STATUS = {
+    IDLE: 'idle',
+    EXTRACTING: 'extracting',
+    COMPLETED: 'completed',
+    ERROR: 'error'
+};
+let rowExtractStatus = new Map(); // rowId -> status
 // 跟踪每一行的提示词生成状态
 let promptGeneratingRows = new Set();
 // 跟踪提示词模式选择
@@ -326,24 +334,6 @@ function addRow() {
             <div class="extract-display" data-row="${rowCount}" title="点击查看完整内容">未提取</div>
         </td>
         <td>
-            <div class="reference-upload-container" data-row="${rowCount}">
-                <div class="upload-area reference-upload" data-row="${rowCount}">
-                    <input type="file" accept="image/*" multiple class="reference-file-input" data-row="${rowCount}">
-                    <div class="upload-placeholder">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="17 8 12 3 7 8"></polyline>
-                            <line x1="12" y1="3" x2="12" y2="15"></line>
-                        </svg>
-                        <span>上传图片</span>
-                    </div>
-                    <img class="reference-preview" alt="预览">
-                    <button class="delete-image-btn reference-delete-btn" data-row="${rowCount}" style="display:none;">×</button>
-                </div>
-                <button class="reference-gallery-btn" data-row="${rowCount}" style="display:none;">展开</button>
-            </div>
-        </td>
-        <td>
             <div class="prompt-container" data-row="${rowCount}">
                 <button class="prompt-mode-toggle" data-row="${rowCount}" data-mode="amazon" title="点击切换模式">
                     <span class="mode-indicator">亚马逊</span>
@@ -485,66 +475,7 @@ function bindRowEvents(row) {
         toggleProductGallery(row);
     });
 
-    // 参考图片上传（E列）- 支持多图片
-    const referenceUploadArea = row.querySelector('.reference-upload');
-    const referenceFileInput = row.querySelector('.reference-file-input');
-    const referencePreview = row.querySelector('.reference-preview');
-    const referenceDeleteBtn = row.querySelector('.reference-delete-btn');
-    const galleryBtn = row.querySelector('.reference-gallery-btn');
-
-    // 存储该行的所有参考图片
-    if (!row.referenceImages) {
-        row.referenceImages = [];
-    }
-
-    referenceUploadArea.addEventListener('click', () => {
-        // 如果已有图片，放大查看第一张
-        if (referenceUploadArea.classList.contains('has-image') && row.referenceImages && row.referenceImages.length > 0) {
-            showImageModal(row.referenceImages[0], row.referenceImages, 0);
-        } else {
-            // 如果没有图片，打开文件选择
-            referenceFileInput.click();
-        }
-    });
-
-    referenceFileInput.addEventListener('change', function(e) {
-        const files = Array.from(e.target.files);
-        if (files.length > 0) {
-            files.forEach(file => {
-                if (file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        row.referenceImages.push(e.target.result);
-                        // 显示第一张图片
-                        referencePreview.src = row.referenceImages[0];
-                        referenceUploadArea.classList.add('has-image');
-                        // 显示删除按钮和画廊按钮
-                        referenceDeleteBtn.style.display = 'block';
-                        galleryBtn.style.display = 'block';
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-        }
-    });
-
-    referenceDeleteBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        referencePreview.src = '';
-        referenceUploadArea.classList.remove('has-image');
-        referenceDeleteBtn.style.display = 'none';
-        referenceFileInput.value = '';
-        row.referenceImages = [];
-        galleryBtn.style.display = 'none';
-    });
-
-    // 画廊按钮点击事件
-    galleryBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        toggleReferenceGallery(row);
-    });
-
-    // 历史图片（I列）- 支持多图片
+    // 历史图片（H列）- 支持多图片
     const historyGalleryBtn = row.querySelector('.history-gallery-btn');
     const historyDownloadBtn = row.querySelector('.history-download-btn');
 
@@ -584,16 +515,11 @@ function bindRowEvents(row) {
 
     // 监听提取结果变化，控制按钮状态
     const observer = new MutationObserver(function() {
-        const extractText = extractDisplay.textContent.trim();
         const currentRowId = parseInt(row.dataset.rowId);
+        const status = rowExtractStatus.get(currentRowId);
 
-        // 只有当提取完成且不是加载状态，并且当前行没有正在生成提示词时才启用按钮
-        if (extractText &&
-            extractText !== '未提取' &&
-            !extractText.includes('正在分析') &&
-            !extractText.includes('提取中') &&
-            !extractText.includes('分析中') &&
-            !promptGeneratingRows.has(currentRowId)) {
+        // 只有当提取完成且当前行没有正在生成提示词时才启用按钮
+        if (status === EXTRACT_STATUS.COMPLETED && !promptGeneratingRows.has(currentRowId)) {
             mainImageBtn.disabled = false;
             aplusBtn.disabled = false;
         } else {
@@ -909,7 +835,7 @@ async function generateImage(rowId) {
         }
     }
 
-    // 获取参考图片（优先使用商品图，其次使用参考图）
+    // 获取参考图片（使用商品图作为参考图）
     const productPreview = row.querySelector('.product-preview');
     const productImage = productPreview.src;
     let referenceImageBase64 = null;
@@ -917,9 +843,6 @@ async function generateImage(rowId) {
     if (productImage && productImage !== window.location.href && !productImage.startsWith('http')) {
         // 使用商品图作为参考图
         referenceImageBase64 = productImage;
-    } else if (row.referenceImages && row.referenceImages.length > 0) {
-        // 使用第一张参考图
-        referenceImageBase64 = row.referenceImages[0];
     }
 
     // 显示加载状态
@@ -946,8 +869,7 @@ async function generateImage(rowId) {
             const requestBody = {
                 model: aiSettings.imageGenModelName,
                 prompt: promptText,
-                aspect_ratio: currentAspectRatio,
-                size: currentAspectRatio  // 同时添加 size 参数以兼容不同API
+                size: currentAspectRatio
             };
 
             console.log('=== API请求体 ===');
@@ -1259,23 +1181,20 @@ function showImageModal(imageUrl, allImages = null, currentIndex = 0, row = null
                 deleteHistoryImage(row, currentIdx);
 
                 // 如果还有其他图片，切换到相邻图片
-                if (images.length > 1) {
-                    // 从数组中移除当前图片
-                    images.splice(currentIdx, 1);
-
+                if (row.historyImages.length > 0) {
                     // 调整当前索引
-                    if (currentIdx >= images.length) {
-                        currentIdx = images.length - 1;
+                    if (currentIdx >= row.historyImages.length) {
+                        currentIdx = row.historyImages.length - 1;
                     }
 
                     // 更新显示
-                    img.src = images[currentIdx];
+                    img.src = row.historyImages[currentIdx];
                     if (counter) {
-                        counter.textContent = `${currentIdx + 1}/${images.length}`;
+                        counter.textContent = `${currentIdx + 1}/${row.historyImages.length}`;
                     }
 
                     // 如果只剩一张图片，移除前后按钮
-                    if (images.length === 1) {
+                    if (row.historyImages.length === 1) {
                         const prevBtn = modal.querySelector('button');
                         const nextBtn = modal.querySelectorAll('button')[1];
                         if (prevBtn && prevBtn.innerHTML === '◀') prevBtn.remove();
@@ -1452,7 +1371,7 @@ function showCopyToBottomMenu(row, event) {
 
     copyBtn.addEventListener('click', function() {
         copyRowToBottom(row);
-        menu.remove();
+        removeMenuSafely(menu);
     });
 
     menu.appendChild(copyBtn);
@@ -1467,7 +1386,18 @@ function showCopyToBottomMenu(row, event) {
             }
         };
         document.addEventListener('click', closeHandler);
+
+        // 保存清理函数的引用，以便在菜单被移除时清理
+        menu._closeHandler = closeHandler;
     }, 100);
+}
+
+// 在菜单移除时清理事件监听器
+function removeMenuSafely(menu) {
+    if (menu._closeHandler) {
+        document.removeEventListener('click', menu._closeHandler);
+    }
+    menu.remove();
 }
 
 // 复制行到下方
@@ -1510,24 +1440,6 @@ function copyRowToBottom(sourceRow) {
         </td>
         <td>
             <div class="extract-display" data-row="${rowCount}" title="点击查看完整内容">未提取</div>
-        </td>
-        <td>
-            <div class="reference-upload-container" data-row="${rowCount}">
-                <div class="upload-area reference-upload" data-row="${rowCount}">
-                    <input type="file" accept="image/*" multiple class="reference-file-input" data-row="${rowCount}">
-                    <div class="upload-placeholder">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="17 8 12 3 7 8"></polyline>
-                            <line x1="12" y1="3" x2="12" y2="15"></line>
-                        </svg>
-                        <span>上传图片</span>
-                    </div>
-                    <img class="reference-preview" alt="预览">
-                    <button class="delete-image-btn reference-delete-btn" data-row="${rowCount}" style="display:none;">×</button>
-                </div>
-                <button class="reference-gallery-btn" data-row="${rowCount}" style="display:none;">展开</button>
-            </div>
         </td>
         <td>
             <div class="prompt-container" data-row="${rowCount}">
@@ -1614,23 +1526,8 @@ function copyRowToBottom(sourceRow) {
         newExtractDisplay.textContent = sourceExtractDisplay.textContent;
     }
 
-    // E列：参考图
-    if (sourceRow.referenceImages && sourceRow.referenceImages.length > 0) {
-        newRow.referenceImages = [...sourceRow.referenceImages];
-
-        const newReferencePreview = newRow.querySelector('.reference-preview');
-        const newReferenceUploadArea = newRow.querySelector('.reference-upload');
-        const newReferenceDeleteBtn = newRow.querySelector('.reference-delete-btn');
-        const newGalleryBtn = newRow.querySelector('.reference-gallery-btn');
-
-        newReferencePreview.src = sourceRow.referenceImages[0];
-        newReferenceUploadArea.classList.add('has-image');
-        newReferenceDeleteBtn.style.display = 'block';
-        newGalleryBtn.style.display = 'block';
-    }
-
     // 重置其他列为默认状态
-    // F列：提示词模式重置为亚马逊模式
+    // E列：提示词模式重置为亚马逊模式
     const newPromptModeToggle = newRow.querySelector('.prompt-mode-toggle');
     if (newPromptModeToggle) {
         newPromptModeToggle.dataset.mode = 'amazon';
@@ -1645,7 +1542,7 @@ function copyRowToBottom(sourceRow) {
     const newPromptButtonsContainer = newRow.querySelector('.prompt-buttons-container');
     if (newPromptButtonsContainer) newPromptButtonsContainer.style.display = 'block';
 
-    // G列：尺寸重置为第一个选项（默认值）
+    // F列：尺寸重置为第一个选项（默认值）
     const newSizeSelect = newRow.querySelector('.size-select');
     if (newSizeSelect) {
         newSizeSelect.selectedIndex = 0;
@@ -1778,113 +1675,6 @@ function toggleProductGallery(row) {
 
         // 添加全局点击事件，点击外部区域关闭展开行
         const galleryBtn = row.querySelector('.product-gallery-btn');
-        setTimeout(() => {
-            const closeHandler = function(e) {
-                // 如果点击的是展开行内部或按钮本身，不关闭
-                if (galleryRow.contains(e.target) || galleryBtn.contains(e.target)) {
-                    return;
-                }
-
-                // 点击外部区域，关闭展开行
-                galleryRow.remove();
-                galleryBtn.classList.remove('expanded');
-                document.removeEventListener('click', closeHandler);
-            };
-
-            document.addEventListener('click', closeHandler);
-        }, 100);
-    }
-}
-
-// 切换参考图片画廊展开/收起
-function toggleReferenceGallery(row) {
-    const images = row.referenceImages || [];
-    if (images.length === 0) return;
-
-    const rowId = row.dataset.rowId;
-    const existingGalleryRow = document.querySelector(`tr.gallery-row[data-parent-row="${rowId}"]`);
-
-    if (existingGalleryRow) {
-        // 如果已经展开，则收起
-        existingGalleryRow.remove();
-        row.querySelector('.reference-gallery-btn').classList.remove('expanded');
-    } else {
-        // 展开画廊
-        const galleryRow = document.createElement('tr');
-        galleryRow.className = 'gallery-row';
-        galleryRow.dataset.parentRow = rowId;
-
-        const galleryCell = document.createElement('td');
-        galleryCell.colSpan = 10;
-        galleryCell.className = 'gallery-cell';
-
-        const galleryContainer = document.createElement('div');
-        galleryContainer.className = 'gallery-container';
-
-        const galleryTitle = document.createElement('div');
-        galleryTitle.className = 'gallery-title';
-        galleryTitle.textContent = `参考图片 (${images.length}张)`;
-
-        const imagesGrid = document.createElement('div');
-        imagesGrid.className = 'gallery-grid';
-
-        images.forEach((imgSrc, index) => {
-            const imgWrapper = document.createElement('div');
-            imgWrapper.className = 'gallery-item';
-
-            const img = document.createElement('img');
-            img.src = imgSrc;
-            img.addEventListener('click', () => showImageModal(imgSrc, images, index));
-
-            const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'gallery-item-delete';
-            deleteBtn.textContent = '×';
-            deleteBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                row.referenceImages.splice(index, 1);
-                if (row.referenceImages.length > 0) {
-                    row.querySelector('.reference-preview').src = row.referenceImages[0];
-                    toggleReferenceGallery(row);
-                    setTimeout(() => toggleReferenceGallery(row), 0);
-                } else {
-                    row.querySelector('.reference-upload').classList.remove('has-image');
-                    row.querySelector('.reference-delete-btn').style.display = 'none';
-                    row.querySelector('.reference-gallery-btn').style.display = 'none';
-                    galleryRow.remove();
-
-                }
-            });
-
-            imgWrapper.appendChild(img);
-            imgWrapper.appendChild(deleteBtn);
-            imagesGrid.appendChild(imgWrapper);
-        });
-
-        // 添加更多图片按钮
-        const addMoreBtn = document.createElement('div');
-        addMoreBtn.className = 'gallery-add-more';
-        addMoreBtn.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-            <span>添加更多</span>
-        `;
-        addMoreBtn.addEventListener('click', () => {
-            row.querySelector('.reference-file-input').click();
-        });
-        imagesGrid.appendChild(addMoreBtn);
-
-        galleryContainer.appendChild(galleryTitle);
-        galleryContainer.appendChild(imagesGrid);
-        galleryCell.appendChild(galleryContainer);
-        galleryRow.appendChild(galleryCell);
-
-        row.parentNode.insertBefore(galleryRow, row.nextSibling);
-        row.querySelector('.reference-gallery-btn').classList.add('expanded');
-
-        // 添加全局点击事件，点击外部区域关闭展开行
-        const galleryBtn = row.querySelector('.reference-gallery-btn');
         setTimeout(() => {
             const closeHandler = function(e) {
                 // 如果点击的是展开行内部或按钮本身，不关闭
@@ -2106,19 +1896,14 @@ function resizeImageToSize(url, targetSize) {
                 // 绘制缩放后的图片
                 ctx.drawImage(img, 0, 0, targetSize.width, targetSize.height);
 
-                // 转换为blob - 使用 try-catch 捕获 tainted canvas 错误
-                try {
-                    canvas.toBlob((blob) => {
-                        if (blob) {
-                            resolve(blob);
-                        } else {
-                            reject(new Error('Canvas转换失败'));
-                        }
-                    }, 'image/png', 1.0);
-                } catch (securityError) {
-                    console.warn('Canvas被污染，无法导出:', securityError);
-                    reject(new Error('Canvas安全错误'));
-                }
+                // 转换为blob - toBlob是异步的，错误需要在回调内处理
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        resolve(blob);
+                    } else {
+                        reject(new Error('Canvas转换失败'));
+                    }
+                }, 'image/png', 1.0);
             } catch (error) {
                 console.error('Canvas操作失败:', error);
                 reject(error);
@@ -2216,70 +2001,6 @@ async function downloadImage(url, filename, targetSize = null) {
         a.click();
         document.body.removeChild(a);
     }
-}
-
-// 显示参考图片画廊
-function showReferenceGallery(row) {
-    const images = row.referenceImages || [];
-    if (images.length === 0) return;
-
-    const modal = document.createElement('div');
-    modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 2000;';
-
-    const galleryContainer = document.createElement('div');
-    galleryContainer.style.cssText = 'background: white; border-radius: 8px; padding: 20px; max-width: 90%; max-height: 90%; overflow-y: auto; position: relative;';
-
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = '×';
-    closeBtn.style.cssText = 'position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border: none; background: #e74c3c; color: white; font-size: 24px; border-radius: 50%; cursor: pointer;';
-    closeBtn.addEventListener('click', () => modal.remove());
-
-    const title = document.createElement('h3');
-    title.textContent = '参考图片 (' + images.length + '张)';
-    title.style.marginBottom = '20px';
-
-    const imagesGrid = document.createElement('div');
-    imagesGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;';
-
-    images.forEach((imgSrc, index) => {
-        const imgWrapper = document.createElement('div');
-        imgWrapper.style.cssText = 'position: relative; border: 2px solid #ddd; border-radius: 8px; overflow: hidden;';
-
-        const img = document.createElement('img');
-        img.src = imgSrc;
-        img.style.cssText = 'width: 100%; height: 150px; object-fit: cover; cursor: pointer;';
-        img.addEventListener('click', () => showImageModal(imgSrc));
-
-        const deleteBtn = document.createElement('button');
-        deleteBtn.textContent = '×';
-        deleteBtn.style.cssText = 'position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; border: none; background: rgba(231, 76, 60, 0.9); color: white; font-size: 18px; border-radius: 50%; cursor: pointer;';
-        deleteBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-
-            row.referenceImages.splice(index, 1);
-            modal.remove();
-            if (row.referenceImages.length > 0) {
-                row.querySelector('.reference-preview').src = row.referenceImages[0];
-            } else {
-                row.querySelector('.reference-upload').classList.remove('has-image');
-                row.querySelector('.reference-gallery-btn').style.display = 'none';
-            }
-        });
-
-        imgWrapper.appendChild(img);
-        imgWrapper.appendChild(deleteBtn);
-        imagesGrid.appendChild(imgWrapper);
-    });
-
-    galleryContainer.appendChild(closeBtn);
-    galleryContainer.appendChild(title);
-    galleryContainer.appendChild(imagesGrid);
-    modal.appendChild(galleryContainer);
-    document.body.appendChild(modal);
-
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.remove();
-    });
 }
 
 // ========== AI功能相关 ==========
@@ -2469,14 +2190,15 @@ async function selectDownloadPath() {
         // 保存目录句柄
         downloadDirHandle = dirHandle;
 
-        // 显示路径名称
+        // 显示路径名称（仅用于UI显示）
         document.getElementById('downloadPath').value = dirHandle.name;
 
-        // 保存到设置
+        // 注意：FileSystemDirectoryHandle无法序列化到localStorage
+        // 只保存路径名称作为提示，实际句柄保存在内存中
         aiSettings.downloadPath = dirHandle.name;
         localStorage.setItem(AI_SETTINGS_KEY, JSON.stringify(aiSettings));
 
-        alert('下载路径已设置！');
+        alert('下载路径已设置！\n\n注意：此设置仅在当前会话有效，刷新页面后需要重新选择。');
     } catch (error) {
         if (error.name !== 'AbortError') {
             console.error('选择路径失败:', error);
@@ -2784,6 +2506,11 @@ async function extractWithImageAPI(row, extractBtn, sellingPoint, extractDisplay
         return;
     }
 
+    const rowId = parseInt(row.dataset.rowId);
+
+    // 设置状态为提取中
+    rowExtractStatus.set(rowId, EXTRACT_STATUS.EXTRACTING);
+
     // 显示加载状态
     extractBtn.disabled = true;
     extractBtn.textContent = '提取中...';
@@ -2837,6 +2564,8 @@ async function extractWithImageAPI(row, extractBtn, sellingPoint, extractDisplay
         if (data.choices && data.choices.length > 0) {
             const result = data.choices[0].message.content;
             extractDisplay.textContent = result;
+            // 设置状态为完成
+            rowExtractStatus.set(rowId, EXTRACT_STATUS.COMPLETED);
         } else {
             throw new Error('API返回数据格式错误');
         }
@@ -2844,6 +2573,8 @@ async function extractWithImageAPI(row, extractBtn, sellingPoint, extractDisplay
     } catch (error) {
         console.error('图像识别失败:', error);
         extractDisplay.textContent = '未提取';
+        // 设置状态为错误
+        rowExtractStatus.set(rowId, EXTRACT_STATUS.ERROR);
         alert(`提取失败: ${error.message}`);
     } finally {
         // 恢复按钮状态
@@ -2859,6 +2590,11 @@ async function extractWithTextAPI(row, extractBtn, sellingPoint, extractDisplay)
         alert('请先按J键配置文本分析API设置！');
         return;
     }
+
+    const rowId = parseInt(row.dataset.rowId);
+
+    // 设置状态为提取中
+    rowExtractStatus.set(rowId, EXTRACT_STATUS.EXTRACTING);
 
     // 显示加载状态
     extractBtn.disabled = true;
@@ -2899,6 +2635,8 @@ async function extractWithTextAPI(row, extractBtn, sellingPoint, extractDisplay)
         if (data.choices && data.choices.length > 0) {
             const result = data.choices[0].message.content;
             extractDisplay.textContent = result;
+            // 设置状态为完成
+            rowExtractStatus.set(rowId, EXTRACT_STATUS.COMPLETED);
         } else {
             throw new Error('API返回数据格式错误');
         }
@@ -2906,6 +2644,8 @@ async function extractWithTextAPI(row, extractBtn, sellingPoint, extractDisplay)
     } catch (error) {
         console.error('文本分析失败:', error);
         extractDisplay.textContent = '未提取';
+        // 设置状态为错误
+        rowExtractStatus.set(rowId, EXTRACT_STATUS.ERROR);
         alert(`分析失败: ${error.message}`);
     } finally {
         // 恢复按钮状态
@@ -3261,12 +3001,9 @@ async function generatePrompts(rowId, type) {
         targetBtn.textContent = originalText;
 
         // 检查提取结果状态，决定是否启用另一个按钮
-        const extractText = extractDisplay.textContent.trim();
-        if (extractText &&
-            extractText !== '未提取' &&
-            !extractText.includes('正在分析') &&
-            !extractText.includes('提取中') &&
-            !extractText.includes('分析中')) {
+        const currentRowId = parseInt(rowId);
+        const status = rowExtractStatus.get(currentRowId);
+        if (status === EXTRACT_STATUS.COMPLETED) {
             otherBtn.disabled = false;
         } else {
             otherBtn.disabled = true;
@@ -3467,7 +3204,7 @@ function parsePrompts(text) {
 
 // 显示提示词结果
 function displayPromptResults(row, prompts, type) {
-    const promptCell = row.querySelector('td:nth-child(6)'); // F列
+    const promptCell = row.querySelector('td:nth-child(5)'); // E列（提示词列）
     const promptContainer = promptCell.querySelector('.prompt-container');
     const rowId = row.dataset.rowId;
 
@@ -4052,8 +3789,13 @@ function showCopyToast(message) {
 // 更新行号
 function updateRowNumbers() {
     const rows = document.querySelectorAll('#tableBody tr');
-    rows.forEach((row, index) => {
-        row.querySelector('.row-number').textContent = index + 1;
+    let currentNumber = 1;
+    rows.forEach((row) => {
+        const rowNumberSpan = row.querySelector('.row-number');
+        if (rowNumberSpan) {
+            rowNumberSpan.textContent = currentNumber;
+            currentNumber++;
+        }
     });
     rowCount = rows.length;
 }
