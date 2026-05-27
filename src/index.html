@@ -4,44 +4,95 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>批量图片生成工具</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20260515">
 </head>
 <body>
     <div class="container">
-        <div class="toolbar" id="toolbar" style="display: none;">
-            <span id="selectionInfo">已选中 0 行</span>
-            <button id="deleteSelectedBtn" class="delete-selected-btn">删除选中行</button>
-            <button id="cancelSelectBtn" class="cancel-select-btn">取消选择</button>
-            <button id="batchExtractBtn" class="batch-extract-btn">批量提取</button>
+        <!-- 顶部功能按钮栏 -->
+        <div class="top-toolbar">
+            <div class="top-toolbar-left">
+                <!-- 模块切换按钮 -->
+                <button id="smartTableBtn" class="module-switch-btn active">智能表格</button>
+                <button id="visualAgentBtn" class="module-switch-btn">Amazon Visual Agent</button>
+            </div>
+            <div class="top-toolbar-right">
+                <button id="splitBtn" class="top-split-btn" title="拆分">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 3h5v5"></path>
+                        <path d="M8 3H3v5"></path>
+                        <path d="M12 3v18"></path>
+                        <path d="M16 21h5v-5"></path>
+                        <path d="M8 21H3v-5"></path>
+                    </svg>
+                </button>
+                <button id="watermarkBtn" class="top-watermark-btn" title="添加水印">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                </button>
+                <button id="topSettingsBtn" class="top-settings-btn" title="设置 (J)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
         </div>
 
-        <div class="table-wrapper">
-            <table id="mainTable">
-                <thead>
-                    <tr>
-                        <th class="col-number">A<br>序号</th>
-                        <th class="col-product">B<br>商品图</th>
-                        <th class="col-selling-point">C<br>卖点</th>
-                        <th class="col-extract">D<br>提取结果</th>
-                        <th class="col-prompt">E<br>提示词</th>
-                        <th class="col-size">F<br>尺寸</th>
-                        <th class="col-result">G<br>结果图片</th>
-                        <th class="col-history">H<br>历史图片</th>
-                        <th class="col-action">I<br>操作</th>
-                    </tr>
-                </thead>
-                <tbody id="tableBody">
-                </tbody>
-            </table>
+        <!-- 智能表格模块 -->
+        <div id="smartTableModule" class="module-container active">
+            <div class="toolbar" id="toolbar" style="display: none;">
+                <span id="selectionInfo">已选中 0 行</span>
+                <button id="deleteSelectedBtn" class="delete-selected-btn">删除选中行</button>
+                <button id="cancelSelectBtn" class="cancel-select-btn">取消选择</button>
+                <button id="batchExtractBtn" class="batch-extract-btn">批量提取</button>
+            </div>
+
+            <div class="table-wrapper">
+                <table id="mainTable">
+                    <thead>
+                        <tr>
+                            <th class="col-number">A<br>序号</th>
+                            <th class="col-product">B<br>商品图</th>
+                            <th class="col-selling-point">C<br>卖点</th>
+                            <th class="col-extract">D<br>提取结果</th>
+                            <th class="col-prompt">E<br>提示词</th>
+                            <th class="col-size">F<br>尺寸</th>
+                            <th class="col-result">G<br>结果图片</th>
+                            <th class="col-history">H<br>历史图片</th>
+                            <th class="col-action">I<br>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="add-row-container">
+                <button id="addRowBtn" class="add-row-btn" title="添加新行">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                </button>
+            </div>
         </div>
 
-        <div class="add-row-container">
-            <button id="addRowBtn" class="add-row-btn" title="添加新行">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-            </button>
+        <!-- Amazon Visual Agent 模块 -->
+        <div id="visualAgentModule" class="module-container">
+            <div class="visual-agent-placeholder">
+                <h2>Amazon Visual Agent</h2>
+                <p>独立视觉工作流模块，正在规划中。</p>
+                <ul class="visual-agent-feature-list">
+                    <li>与智能表格数据联动</li>
+                    <li>可视化编排主图 / A+ 生成流程</li>
+                    <li>批量预览与导出</li>
+                </ul>
+                <p class="visual-agent-hint">当前请使用顶部「智能表格」完成提取、提示词与出图。</p>
+            </div>
         </div>
     </div>
 
@@ -114,7 +165,7 @@
                         <h3>图片生成API (gpt-image-2)</h3>
                         <div class="settings-field" style="display: none;">
                             <label>API Base URL</label>
-                            <input type="text" id="imageGenApiBaseUrl" placeholder="https://ai.comfly.chat" value="https://ai.comfly.chat">
+                            <input type="text" id="imageGenApiBaseUrl" placeholder="https://ai.comfly.org" value="https://ai.comfly.org">
                         </div>
                         <div class="settings-field">
                             <label>API Key</label>
@@ -123,6 +174,19 @@
                         <div class="settings-field" style="display: none;">
                             <label>模型名称</label>
                             <input type="text" id="imageGenModelName" placeholder="gpt-image-2" value="gpt-image-2">
+                        </div>
+                    </div>
+
+                    <!-- Gemini图片生成API -->
+                    <div class="settings-section">
+                        <h3>Gemini图片生成API (nano-banana-2)</h3>
+                        <div class="settings-field">
+                            <label>API Base URL</label>
+                            <input type="text" id="geminiApiBaseUrl" placeholder="https://ai.comfly.org" value="https://ai.comfly.org">
+                        </div>
+                        <div class="settings-field">
+                            <label>API Key</label>
+                            <input type="password" id="geminiApiKey" placeholder="输入您的Gemini API密钥">
                         </div>
                     </div>
                 </div>
@@ -250,45 +314,297 @@ English：
         </div>
     </div>
 
-    <!-- 提示词模式选择弹窗 -->
-    <div id="promptModeModal" class="prompt-mode-modal" style="display: none;">
-        <div class="prompt-mode-content">
-            <div class="prompt-mode-header">
-                <h2>选择提示词模式</h2>
-                <button class="prompt-mode-close" id="closePromptModeBtn">&times;</button>
-            </div>
-            <div class="prompt-mode-body">
-                <button class="mode-select-btn amazon-mode-btn" data-mode="amazon">
-                    <div class="mode-icon">🛒</div>
-                    <div class="mode-title">亚马逊</div>
-                    <div class="mode-desc">生成主图和A+提示词</div>
-                </button>
-                <button class="mode-select-btn free-mode-btn" data-mode="free">
-                    <div class="mode-icon">✏️</div>
-                    <div class="mode-title">自由</div>
-                    <div class="mode-desc">自由输入提示词文本</div>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 自由模式输入弹窗 -->
+    <!-- 提示词输入弹窗 -->
     <div id="freePromptModal" class="free-prompt-modal" style="display: none;">
         <div class="free-prompt-content">
             <div class="free-prompt-header">
-                <h2>自由输入提示词</h2>
+                <h2>输入提示词</h2>
                 <button class="free-prompt-close" id="closeFreePromptBtn">&times;</button>
             </div>
             <div class="free-prompt-body">
                 <textarea id="freePromptTextarea" class="free-prompt-textarea" placeholder="请输入您的提示词内容..."></textarea>
             </div>
-            <div class="free-prompt-footer">
-                <button id="cancelFreePromptBtn" class="cancel-free-prompt-btn">取消</button>
-                <button id="saveFreePromptBtn" class="save-free-prompt-btn">保存</button>
+            <div class="free-prompt-presets">
+                <div class="presets-header">
+                    <span class="presets-title">快捷预设</span>
+                    <button id="openPresetSettingsBtn" class="add-preset-btn" title="管理预设">设置</button>
+                </div>
+                <div id="presetsList" class="presets-list"></div>
             </div>
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <!-- 预设设置弹窗 -->
+    <div id="presetSettingsModal" class="preset-settings-modal" style="display: none;">
+        <div class="preset-settings-content">
+            <div class="preset-settings-header">
+                <h2>预设设置</h2>
+                <button class="preset-settings-close" id="closePresetSettingsBtn">&times;</button>
+            </div>
+            <div class="preset-settings-body">
+                <div id="presetSettingsList" class="preset-settings-list"></div>
+            </div>
+            <div class="preset-settings-footer">
+                <button id="addNewPresetBtn" class="preset-settings-add-btn">+ 添加新预设</button>
+            </div>
+        </div>
+        <!-- 添加/编辑预设子弹窗 -->
+        <div id="presetEditSubModal" class="preset-edit-sub-modal" style="display: none;">
+            <div class="preset-edit-sub-content">
+                <div class="preset-edit-sub-header">
+                    <h3 id="presetEditSubTitle">添加预设</h3>
+                    <button id="closePresetEditSubBtn">&times;</button>
+                </div>
+                <div class="preset-edit-sub-body">
+                    <label class="preset-edit-label">预设名称</label>
+                    <input type="text" id="presetEditNameInput" class="preset-edit-name-input" placeholder="输入预设名称">
+                    <label class="preset-edit-label">提示词内容</label>
+                    <textarea id="presetEditContentInput" class="preset-edit-content-input" placeholder="输入提示词内容"></textarea>
+                </div>
+                <div class="preset-edit-sub-footer">
+                    <button id="cancelPresetEditBtn" class="preset-edit-cancel-btn">取消</button>
+                    <button id="savePresetEditBtn" class="preset-edit-save-btn">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分组右键菜单 -->
+    <div id="groupContextMenu" class="context-menu" style="display: none;">
+        <div class="context-menu-item" data-action="ungroup">
+            <span>取消分组</span>
+        </div>
+        <div class="context-menu-item" data-action="remove-from-group" style="display: none;">
+            <span>从组中移除</span>
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" data-action="expand-collapse">
+            <span class="expand-collapse-text">展开组</span>
+        </div>
+    </div>
+
+    <!-- 批量导入提示词弹窗 -->
+    <div id="batchPromptModal" class="batch-prompt-modal" style="display: none;">
+        <div class="batch-prompt-content">
+            <div class="batch-prompt-header">
+                <h2>批量导入提示词</h2>
+                <div class="batch-prompt-header-buttons">
+                    <button class="batch-prompt-settings-btn" id="openQuickTemplateSettingsBtn" title="快捷提示词设置">⚙️</button>
+                    <button class="batch-prompt-close" id="closeBatchPromptBtn">&times;</button>
+                </div>
+            </div>
+            <div class="batch-prompt-body">
+                <div class="analysis-buttons-container">
+                    <button class="analysis-btn batch-quick-btn" data-template="reconstruct-en">
+                        <span class="analysis-btn-icon">🔄</span>
+                        <span class="analysis-btn-text">原图重构（英文）</span>
+                    </button>
+                    <button class="analysis-btn batch-quick-btn" data-template="reconstruct-cn">
+                        <span class="analysis-btn-icon">🌐</span>
+                        <span class="analysis-btn-text">原图重构（中文）</span>
+                    </button>
+                    <button class="analysis-btn batch-quick-btn" data-template="resize-4-3">
+                        <span class="analysis-btn-icon">📐</span>
+                        <span class="analysis-btn-text">调整普通A+尺寸（4:3）</span>
+                    </button>
+                </div>
+                <textarea id="batchPromptTextarea" class="batch-prompt-textarea" placeholder="请输入提示词内容，将应用到组内所有行..."></textarea>
+            </div>
+            <div class="batch-prompt-footer">
+                <div class="batch-prompt-settings">
+                    <div class="batch-setting-item">
+                        <label>模型:</label>
+                        <select id="batchModelSelect" class="batch-select">
+                            <option value="">不修改</option>
+                            <option value="gpt-image-2">gpt-image-2</option>
+                            <option value="gemini-3.1-flash-image-preview">gemini-3.1-flash-image-preview</option>
+                        </select>
+                    </div>
+                    <div class="batch-setting-item">
+                        <label>尺寸:</label>
+                        <select id="batchRatioSelect" class="batch-select">
+                            <option value="">不修改</option>
+                            <option value="1:1">1:1</option>
+                            <option value="16:9">16:9</option>
+                            <option value="9:16">9:16</option>
+                            <option value="21:9">21:9</option>
+                            <option value="9:21">9:21</option>
+                            <option value="4:3">4:3</option>
+                            <option value="3:4">3:4</option>
+                            <option value="3:2">3:2</option>
+                            <option value="2:3">2:3</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="batch-prompt-buttons">
+                    <button id="cancelBatchPromptBtn" class="cancel-batch-prompt-btn">取消</button>
+                    <button id="confirmBatchPromptBtn" class="confirm-batch-prompt-btn">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量导入按钮 -->
+    <div id="batchImportButton" class="batch-import-button" style="display: none;">
+        <button id="batchImportBtn" class="batch-import-btn">批量导入</button>
+        <input type="file" id="batchImportInput" accept="image/*" multiple style="display: none;">
+    </div>
+
+    <!-- 快捷提示词设置弹窗 -->
+    <div id="quickTemplateSettingsModal" class="quick-template-settings-modal" style="display: none;">
+        <div class="quick-template-settings-content">
+            <div class="quick-template-settings-header">
+                <h2>快捷提示词设置</h2>
+                <button class="quick-template-settings-close" id="closeQuickTemplateSettingsBtn">&times;</button>
+            </div>
+            <div class="quick-template-settings-body">
+                <div class="template-list" id="templateList">
+                    <!-- 模板列表将动态生成 -->
+                </div>
+                <button class="add-template-btn" id="addTemplateBtn">+ 添加新预设</button>
+            </div>
+            <div class="quick-template-settings-footer">
+                <button id="saveQuickTemplateSettingsBtn" class="save-quick-template-settings-btn">保存设置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加新预设弹窗 -->
+    <div id="addTemplateModal" class="add-template-modal" style="display: none;">
+        <div class="add-template-content">
+            <div class="add-template-header">
+                <h2>添加新预设</h2>
+                <button class="add-template-close" id="closeAddTemplateBtn">&times;</button>
+            </div>
+            <div class="add-template-body">
+                <div class="add-template-field">
+                    <label>预设名称：</label>
+                    <input type="text" id="newTemplateName" placeholder="例如：背景纯白色" maxlength="50">
+                </div>
+                <div class="add-template-field">
+                    <label>提示词内容：</label>
+                    <textarea id="newTemplateContent" placeholder="请输入提示词内容..." rows="8"></textarea>
+                </div>
+            </div>
+            <div class="add-template-footer">
+                <button id="cancelAddTemplateBtn" class="cancel-add-template-btn">取消</button>
+                <button id="confirmAddTemplateBtn" class="confirm-add-template-btn">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 水印弹窗 -->
+    <div id="watermarkModal" class="watermark-modal" style="display: none;">
+        <div class="watermark-content">
+            <div class="watermark-header">
+                <h2>添加水印</h2>
+                <button class="watermark-close" id="closeWatermarkBtn">&times;</button>
+            </div>
+            <div class="watermark-body">
+                <div class="watermark-left">
+                    <div class="watermark-import-area">
+                        <div class="watermark-import-placeholder">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                <polyline points="21 15 16 10 5 21"></polyline>
+                            </svg>
+                            <p>点击或拖拽图片到此处</p>
+                            <span>支持 JPG、PNG 格式</span>
+                        </div>
+                        <input type="file" id="watermarkImageInput" accept="image/*" style="display: none;">
+                    </div>
+                </div>
+                <div class="watermark-right">
+                    <div class="watermark-preview-area">
+                        <div class="watermark-preview-placeholder">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            <p>图片预览</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="watermark-footer">
+                <button id="importWatermarkImageBtn" class="import-watermark-image-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    导入图片
+                </button>
+                <button id="applyWatermarkBtn" class="apply-watermark-btn">一键添加水印</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 拆分弹窗 -->
+    <div id="splitModal" class="split-modal" style="display: none;">
+        <div class="split-content">
+            <div class="split-header">
+                <h2>拆分图片</h2>
+                <button class="split-close" id="closeSplitBtn">&times;</button>
+            </div>
+            <div class="split-body">
+                <div class="split-upload-area" id="splitUploadArea">
+                    <div class="split-upload-placeholder">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <p>点击导入图片</p>
+                        <span>支持 JPG、PNG 格式</span>
+                    </div>
+                    <input type="file" id="splitImageInput" accept="image/*" style="display: none;">
+                </div>
+                <div class="split-preview-area" id="splitPreviewArea" style="display: none;">
+                    <div class="split-preview-wrapper">
+                        <div class="split-preview-top-bar">
+                            <span class="split-image-dimensions" id="splitImageDimensions" style="display: none;"></span>
+                            <button class="split-delete-btn" id="splitDeleteBtn" title="删除图片">&times;</button>
+                        </div>
+                        <div class="split-crop-container" id="splitCropContainer">
+                            <img id="splitPreviewImage" alt="预览">
+                            <div class="split-crop-overlay" id="splitCropOverlay" style="display: none;">
+                                <div class="split-crop-selection" id="splitCropSelection">
+                                    <span class="crop-handle tl" data-handle="tl"></span>
+                                    <span class="crop-handle tr" data-handle="tr"></span>
+                                    <span class="crop-handle bl" data-handle="bl"></span>
+                                    <span class="crop-handle br" data-handle="br"></span>
+                                </div>
+                            </div>
+                            <div class="split-crop-actions" id="splitCropActions" style="display: none;">
+                                <button class="split-crop-confirm-btn" id="confirmCropBtn">确定</button>
+                                <button class="split-crop-cancel-btn" id="cancelCropBtn">取消</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="split-crop-toolbar" id="splitCropToolbar" style="display: none;">
+                    <button class="split-ratio-btn" id="ratio11Btn" data-ratio="1:1">1:1</button>
+                    <button class="split-ratio-btn" id="ratio219Btn" data-ratio="21:9">21:9</button>
+                    <button class="split-free-crop-btn" id="freeCropBtn">自由裁剪</button>
+                </div>
+                <div class="split-results-area" id="splitResultsArea">
+                    <div class="split-results-header">
+                        <div class="split-results-label">裁剪结果</div>
+                        <div class="split-results-actions">
+                            <button class="split-clear-all-btn" id="splitClearAllBtn" style="display: none;">删除全部裁剪</button>
+                            <button class="split-import-btn" id="splitImportBtn" style="display: none;">导入到表格</button>
+                            <button class="split-download-all-btn" id="splitDownloadAllBtn" style="display: none;">全部下载</button>
+                            <button class="split-download-1600-btn" id="splitDownload1600Btn" style="display: none;">下载（1600）</button>
+                        </div>
+                    </div>
+                    <div class="split-results-gallery" id="splitResultsGallery"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js?v=20260515"></script>
 </body>
 </html>
